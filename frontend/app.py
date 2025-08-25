@@ -206,15 +206,42 @@ def list_summaries():
         # Format results (remove large text fields for list view)
         formatted_summaries = []
         for segment in segments:
+            # Calculate fields on-demand
+            video_id = segment.get('video_id', '')
+            start_time = segment.get('start_time', '')
+            end_time = segment.get('end_time', '')
+            
+            # Calculate duration from time strings
+            duration = 0
+            try:
+                if start_time and end_time:
+                    start_seconds = int(start_time.replace('s', '')) if 's' in start_time else 0
+                    end_seconds = int(end_time.replace('s', '')) if 's' in end_time else 0
+                    duration = end_seconds - start_seconds
+            except:
+                pass
+            
+            # Calculate entity counts on-demand
+            entity_counts = {
+                'books': len(segment.get('books', [])),
+                'people': len(segment.get('people', [])),
+                'places': len(segment.get('places', [])),
+                'facts': len(segment.get('facts', [])),
+                'topics': len(segment.get('topics', []))
+            }
+            
+            # Construct URL on-demand
+            url = f"https://www.youtube.com/watch?v={video_id}&t={start_time.replace('s', '')}" if video_id and start_time else ''
+            
             formatted = {
                 'id': segment.get('id'),
-                'video_id': segment.get('video_id'),
-                'url': segment.get('url'),
-                'start_time': segment.get('start_time'),
-                'end_time': segment.get('end_time'),
-                'duration': segment.get('duration'),
+                'video_id': video_id,
+                'url': url,
+                'start_time': start_time,
+                'end_time': end_time,
+                'duration': duration,
                 'tags': segment.get('tags', []),
-                'entity_counts': segment.get('entity_counts', {}),
+                'entity_counts': entity_counts,
                 'created_at': segment.get('created_at'),
                 'summary_preview': segment.get('summary', '')[:200] + '...' if len(segment.get('summary', '')) > 200 else segment.get('summary', '')
             }

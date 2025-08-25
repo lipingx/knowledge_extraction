@@ -354,7 +354,6 @@ class FirebaseStorage:
             # Also update video info
             video_data = {
                 'video_id': segment_data.get('video_id'),
-                'base_url': segment_data.get('url', '').split('?')[0].split('&')[0],
                 'last_segment_at': firestore.SERVER_TIMESTAMP,
                 'segment_count': firestore.Increment(1)
             }
@@ -421,12 +420,8 @@ class FirebaseStorage:
                 if 'max_duration' in filters:
                     firestore_query = firestore_query.where('duration', '<=', filters['max_duration'])
                 
-                # Entity count filters
-                if 'min_books' in filters:
-                    firestore_query = firestore_query.where('entity_counts.books', '>=', filters['min_books'])
-                
-                if 'min_people' in filters:
-                    firestore_query = firestore_query.where('entity_counts.people', '>=', filters['min_people'])
+                # Note: Entity count filters removed since we calculate entity counts on-demand
+                # This reduces Firebase index requirements and storage costs
             
             # Order and limit
             firestore_query = firestore_query.order_by('created_at', direction=Query.DESCENDING)
@@ -588,15 +583,22 @@ class FirebaseStorage:
             for doc in self.segments_ref.limit(1000).stream():
                 data = doc.to_dict()
                 # Only count segments that have summary data (complete segments)
-                if data.get('summary') or data.get('entity_counts'):
+                if data.get('summary'):
                     summary_segments.append(data)
                     
             stats['total_summaries'] = len(summary_segments)
             
-            # Calculate knowledge entity statistics
+            # Calculate knowledge entity statistics on-demand
             for data in summary_segments:
-                entity_counts = data.get('entity_counts', {})
-                stats['total_knowledge_entities'] += sum(entity_counts.values())
+                # Calculate entity counts from actual data
+                entity_count = (
+                    len(data.get('books', [])) +
+                    len(data.get('people', [])) +
+                    len(data.get('places', [])) +
+                    len(data.get('facts', [])) +
+                    len(data.get('topics', []))
+                )
+                stats['total_knowledge_entities'] += entity_count
                 
                 created_at = data.get('created_at')
                 if created_at and (not stats['latest_summary_date'] or created_at > stats['latest_summary_date']):
@@ -613,7 +615,6 @@ class FirebaseStorage:
         try:
             video_data = {
                 'video_id': segment.video_id,
-                'base_url': segment.url.split('?')[0].split('&')[0],  # Clean URL
                 'last_extracted_at': firestore.SERVER_TIMESTAMP,
                 'segment_count': firestore.Increment(1)
             }

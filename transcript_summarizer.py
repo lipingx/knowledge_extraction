@@ -331,13 +331,11 @@ Please provide a 2-3 paragraph summary covering the main points, key insights, a
             # Extract video ID from URL
             video_id = summary.url.split('v=')[1].split('&')[0] if 'v=' in summary.url else 'unknown'
             
-            # Create a comprehensive document for the summary
+            # Create a comprehensive document for the summary (only essential fields)
             summary_data = {
                 'video_id': video_id,
-                'url': summary.url,
                 'start_time': summary.start_time,
                 'end_time': summary.end_time,
-                'duration': summary.end_time - summary.start_time,
                 'transcription': summary.transcription,
                 'summary': summary.summary,
                 'books': summary.books,
@@ -347,14 +345,6 @@ Please provide a 2-3 paragraph summary covering the main points, key insights, a
                 'topics': summary.topics,
                 'tags': tags or [],
                 'user_notes': user_notes,
-                'character_count': len(summary.transcription),
-                'entity_counts': {
-                    'books': len(summary.books),
-                    'people': len(summary.people),
-                    'places': len(summary.places),
-                    'facts': len(summary.facts),
-                    'topics': len(summary.topics)
-                },
                 'processing_metadata': {
                     'model_used': 'gpt-4o-mini',  # Could be made configurable
                     'extraction_type': 'full_knowledge_extraction',

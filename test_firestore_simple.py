@@ -59,13 +59,11 @@ def main():
     try:
         print("\n🔍 Testing data operations...")
         
-        # Create test summary data
+        # Create test summary data (cleaned structure - no redundant fields)
         test_summary = {
             'video_id': 'test_video_123',
-            'url': 'https://youtube.com/watch?v=test_video_123',
-            'start_time': 0,
-            'end_time': 60,
-            'duration': 60,
+            'start_time': '0s',
+            'end_time': '60s',
             'transcription': 'This is a test transcript to verify Firebase storage integration.',
             'summary': 'Test summary for Firebase integration verification.',
             'books': ['Test Book'],
@@ -74,21 +72,19 @@ def main():
             'facts': ['Firebase stores data in the cloud'],
             'topics': ['Testing', 'Firebase', 'Integration'],
             'tags': ['test', 'firebase'],
-            'user_notes': 'Test data for verifying Firestore integration',
-            'character_count': 73,
-            'entity_counts': {
-                'books': 1,
-                'people': 1,
-                'places': 1,
-                'facts': 1,
-                'topics': 3
-            },
+            'user_notes': 'Test data for verifying cleaned Firestore structure',
             'processing_metadata': {
                 'model_used': 'test-model',
                 'extraction_type': 'integration_test',
                 'processed_at': '2025-01-25T12:00:00'
             }
         }
+        
+        print("📊 Test data contains only essential fields:")
+        print("   ✅ No character_count (calculate with len(transcription))")  
+        print("   ✅ No entity_counts (calculate from entity arrays)")
+        print("   ✅ No url (construct from video_id + start_time)")
+        print("   ✅ No duration (calculate from start_time - end_time)")
         
         # Save to Firestore
         segment_id = client.save_complete_segment(test_summary)
@@ -102,6 +98,26 @@ def main():
             print(f"   Transcript: {retrieved.get('transcription')[:50]}...")
             print(f"   Books: {retrieved.get('books')}")
             print(f"   People: {retrieved.get('people')}")
+            
+            # Test calculated fields
+            print(f"\n🧮 Testing calculated fields:")
+            char_count = len(retrieved.get('transcription', ''))
+            print(f"   Character count: {char_count} (calculated)")
+            
+            entity_counts = {
+                'books': len(retrieved.get('books', [])),
+                'people': len(retrieved.get('people', [])), 
+                'places': len(retrieved.get('places', [])),
+                'facts': len(retrieved.get('facts', [])),
+                'topics': len(retrieved.get('topics', []))
+            }
+            print(f"   Entity counts: {entity_counts} (calculated)")
+            
+            video_id = retrieved.get('video_id')
+            start_time = retrieved.get('start_time', '').replace('s', '')
+            url = f"https://www.youtube.com/watch?v={video_id}&t={start_time}"
+            print(f"   URL: {url} (constructed)")
+            
         else:
             print("❌ Failed to retrieve summary")
         
