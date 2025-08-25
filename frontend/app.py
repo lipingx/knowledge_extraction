@@ -99,6 +99,19 @@ def extract_knowledge():
         # Extract video ID for player
         video_id = extract_video_id(summary.url)
         
+        # Save to Firebase Firestore (background operation)
+        firestore_id = None
+        try:
+            firestore_id = summ.save_summary_to_firestore(
+                summary=summary,
+                tags=['web-app', 'knowledge-extraction'],
+                user_notes=f'Extracted via web app on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+            )
+            print(f"✓ Summary saved to Firestore with ID: {firestore_id}")
+        except Exception as firestore_error:
+            print(f"⚠️  Failed to save to Firestore: {firestore_error}")
+            # Continue without failing the request
+        
         # Format response
         result = {
             'success': True,
@@ -114,7 +127,8 @@ def extract_knowledge():
                 'places': summary.places,
                 'facts': summary.facts,
                 'topics': summary.topics,
-                'processed_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                'processed_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'firestore_id': firestore_id  # Include for potential future use
             }
         }
         
@@ -145,11 +159,172 @@ def health_check():
     summ = get_summarizer()
     api_available = summ is not None
     
+    # Check Firebase connectivity
+    firebase_available = False
+    try:
+        from storage import get_storage_client
+        firebase_client = get_storage_client()
+        stats = firebase_client.get_stats()
+        firebase_available = True
+    except Exception:
+        pass
+    
     return jsonify({
         'status': 'healthy',
         'openai_api_configured': api_available,
+        'firebase_available': firebase_available,
         'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/api/summaries', methods=['GET'])
+def list_summaries():
+    """List stored summaries with optional filtering"""
+    try:
+        from storage import get_storage_client
+        
+        # Get query parameters
+        query = request.args.get('query', '').strip()
+        video_id = request.args.get('video_id', '').strip()
+        tags = request.args.getlist('tags')
+        limit = min(int(request.args.get('limit', 20)), 100)  # Max 100 results
+        
+        # Build filters
+        filters = {}
+        if video_id:
+            filters['video_id'] = video_id
+        if tags:
+            filters['tags'] = tags
+        
+        # Search segments
+        firebase_client = get_storage_client()
+        segments = firebase_client.search_segments(
+            query=query if query else None,
+            filters=filters if filters else None,
+            limit=limit
+        )
+        
+        # Format results (remove large text fields for list view)
+        formatted_summaries = []
+        for segment in segments:
+            formatted = {
+                'id': segment.get('id'),
+                'video_id': segment.get('video_id'),
+                'url': segment.get('url'),
+                'start_time': segment.get('start_time'),
+                'end_time': segment.get('end_time'),
+                'duration': segment.get('duration'),
+                'tags': segment.get('tags', []),
+                'entity_counts': segment.get('entity_counts', {}),
+                'created_at': segment.get('created_at'),
+                'summary_preview': segment.get('summary', '')[:200] + '...' if len(segment.get('summary', '')) > 200 else segment.get('summary', '')
+            }
+            formatted_summaries.append(formatted)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'summaries': formatted_summaries,
+                'count': len(formatted_summaries),
+                'query': query,
+                'filters': filters
+            }
+        })
+        
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': 'Firebase storage not available'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+@app.route('/api/summaries/<summary_id>', methods=['GET'])
+def get_summary(summary_id):
+    """Get a specific summary by ID"""
+    try:
+        from storage import get_storage_client
+        
+        firebase_client = get_storage_client()
+        segment = firebase_client.get_complete_segment(summary_id)
+        
+        if not segment:
+            return jsonify({
+                'success': False,
+                'error': 'Summary not found'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'data': segment
+        })
+        
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': 'Firebase storage not available'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+@app.route('/api/stats', methods=['GET'])
+def get_storage_stats():
+    """Get storage statistics"""
+    try:
+        from storage import get_storage_client
+        
+        firebase_client = get_storage_client()
+        stats = firebase_client.get_stats()
+        
+        return jsonify({
+            'success': True,
+            'data': stats
+        })
+        
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': 'Firebase storage not available'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+@app.route('/api/videos/<video_id>/summaries', methods=['GET'])
+def get_video_summaries(video_id):
+    """Get all summaries for a specific video"""
+    try:
+        from storage import get_storage_client
+        
+        firebase_client = get_storage_client()
+        segments = firebase_client.get_segments_by_video(video_id)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'video_id': video_id,
+                'segments': segments,
+                'count': len(segments)
+            }
+        })
+        
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': 'Firebase storage not available'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 if __name__ == '__main__':
     # Check if running in development

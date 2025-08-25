@@ -345,46 +345,67 @@ if __name__ == "__main__":
         print("Extracting YouTube segment...")
         segment = extractor.extract_segment(url, start_time=start_time, end_time=end_time)
         
-        # Create output directory if it doesn't exist
-        output_dir = "extracted_transcripts"
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Generate filename based on video ID and timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{segment.video_id}_{segment.start_time}s-{segment.end_time}s_{timestamp}.txt"
-        filepath = os.path.join(output_dir, filename)
-        
-        # Prepare content to write
-        content = []
-        content.append("YouTube Transcript Extraction")
-        content.append("=" * 50)
-        content.append(f"Video ID: {segment.video_id}")
-        content.append(f"URL: {segment.url}")
-        content.append(f"Time Range: {segment.start_time}s - {segment.end_time}s")
-        content.append(f"Duration: {segment.end_time - segment.start_time}s")
-        content.append(f"Transcript Length: {len(segment.transcript)} characters")
-        content.append(f"Extracted At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        content.append("\n" + "=" * 50)
-        content.append("CLEAN TRANSCRIPT:")
-        content.append("=" * 50)
-        content.append(segment.transcript)
-        content.append("\n" + "=" * 50)
-        content.append("DETAILED TRANSCRIPT WITH TIMESTAMPS:")
-        content.append("=" * 50)
-        
-        # Add timestamped segments
-        for seg in segment.raw_segments:
-            timestamp = extractor._seconds_to_timestamp(seg['start'])
-            content.append(f"[{timestamp}] {seg['text']}")
-        
-        # Write to file
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(content))
-        
-        print(f"✓ Transcript successfully saved to: {filepath}")
+        print(f"✓ Transcript extracted successfully!")
         print(f"✓ Video ID: {segment.video_id}")
         print(f"✓ Duration: {segment.end_time - segment.start_time}s")
         print(f"✓ Characters: {len(segment.transcript)}")
+        
+        # Option 1: Save to Firebase Firestore (recommended)
+        try:
+            from storage import get_storage_client
+            
+            print("\nSaving to Firebase Firestore...")
+            firebase_client = get_storage_client()
+            segment_id = firebase_client.save_segment(
+                segment=segment,
+                tags=['example', 'test'],
+                user_notes='Example extraction from script'
+            )
+            print(f"✓ Segment saved to Firestore with ID: {segment_id}")
+            
+        except ImportError:
+            print("⚠️  Firebase storage not available. Install firebase-admin to enable Firestore storage.")
+        except Exception as e:
+            print(f"⚠️  Firebase storage error: {e}")
+            print("Falling back to file storage...")
+            
+            # Option 2: Fallback to file storage
+            output_dir = "extracted_transcripts"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Generate filename based on video ID and timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{segment.video_id}_{segment.start_time}s-{segment.end_time}s_{timestamp}.txt"
+            filepath = os.path.join(output_dir, filename)
+            
+            # Prepare content to write
+            content = []
+            content.append("YouTube Transcript Extraction")
+            content.append("=" * 50)
+            content.append(f"Video ID: {segment.video_id}")
+            content.append(f"URL: {segment.url}")
+            content.append(f"Time Range: {segment.start_time}s - {segment.end_time}s")
+            content.append(f"Duration: {segment.end_time - segment.start_time}s")
+            content.append(f"Transcript Length: {len(segment.transcript)} characters")
+            content.append(f"Extracted At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            content.append("\n" + "=" * 50)
+            content.append("CLEAN TRANSCRIPT:")
+            content.append("=" * 50)
+            content.append(segment.transcript)
+            content.append("\n" + "=" * 50)
+            content.append("DETAILED TRANSCRIPT WITH TIMESTAMPS:")
+            content.append("=" * 50)
+            
+            # Add timestamped segments
+            for seg in segment.raw_segments:
+                timestamp = extractor._seconds_to_timestamp(seg['start'])
+                content.append(f"[{timestamp}] {seg['text']}")
+            
+            # Write to file
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(content))
+            
+            print(f"✓ Transcript saved to file: {filepath}")
         
     except Exception as e:
         print(f"✗ Error: {e}")

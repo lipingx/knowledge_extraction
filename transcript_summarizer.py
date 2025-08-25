@@ -309,6 +309,112 @@ Please provide a 2-3 paragraph summary covering the main points, key insights, a
         
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+    
+    def save_summary_to_firestore(self, summary: TranscriptSummary, tags: list = None, user_notes: str = "") -> str:
+        """
+        Save transcript summary to Firebase Firestore
+        
+        Args:
+            summary: TranscriptSummary object
+            tags: Optional list of tags for categorization
+            user_notes: Optional user notes
+            
+        Returns:
+            str: Document ID of saved summary
+        """
+        try:
+            from storage import get_storage_client
+            
+            # Get Firebase storage client
+            firebase_client = get_storage_client()
+            
+            # Extract video ID from URL
+            video_id = summary.url.split('v=')[1].split('&')[0] if 'v=' in summary.url else 'unknown'
+            
+            # Create a comprehensive document for the summary
+            summary_data = {
+                'video_id': video_id,
+                'url': summary.url,
+                'start_time': summary.start_time,
+                'end_time': summary.end_time,
+                'duration': summary.end_time - summary.start_time,
+                'transcription': summary.transcription,
+                'summary': summary.summary,
+                'books': summary.books,
+                'people': summary.people,
+                'places': summary.places,
+                'facts': summary.facts,
+                'topics': summary.topics,
+                'tags': tags or [],
+                'user_notes': user_notes,
+                'character_count': len(summary.transcription),
+                'entity_counts': {
+                    'books': len(summary.books),
+                    'people': len(summary.people),
+                    'places': len(summary.places),
+                    'facts': len(summary.facts),
+                    'topics': len(summary.topics)
+                },
+                'processing_metadata': {
+                    'model_used': 'gpt-4o-mini',  # Could be made configurable
+                    'extraction_type': 'full_knowledge_extraction',
+                    'processed_at': __import__('datetime').datetime.now().isoformat()
+                }
+            }
+            
+            # Save to Firestore segments collection
+            summary_id = firebase_client.save_complete_segment(summary_data)
+            
+            return summary_id
+            
+        except ImportError:
+            raise ImportError("Firebase storage not available. Install firebase-admin to enable Firestore storage.")
+        except Exception as e:
+            raise Exception(f"Failed to save summary to Firestore: {str(e)}")
+    
+    def get_summary_from_firestore(self, summary_id: str) -> dict:
+        """
+        Retrieve a summary from Firebase Firestore
+        
+        Args:
+            summary_id: Document ID of the summary
+            
+        Returns:
+            dict: Summary data or None if not found
+        """
+        try:
+            from storage import get_storage_client
+            
+            firebase_client = get_storage_client()
+            return firebase_client.get_complete_segment(summary_id)
+            
+        except ImportError:
+            raise ImportError("Firebase storage not available. Install firebase-admin to enable Firestore storage.")
+        except Exception as e:
+            raise Exception(f"Failed to retrieve summary from Firestore: {str(e)}")
+    
+    def search_summaries(self, query: str = None, filters: dict = None, limit: int = 20) -> list:
+        """
+        Search summaries in Firebase Firestore
+        
+        Args:
+            query: Text to search in summaries
+            filters: Dictionary of filters (tags, video_id, date_range, etc.)
+            limit: Maximum results to return
+            
+        Returns:
+            list: List of matching summary documents
+        """
+        try:
+            from storage import get_storage_client
+            
+            firebase_client = get_storage_client()
+            return firebase_client.search_segments(query, filters, limit)
+            
+        except ImportError:
+            raise ImportError("Firebase storage not available. Install firebase-admin to enable Firestore storage.")
+        except Exception as e:
+            raise Exception(f"Failed to search summaries in Firestore: {str(e)}")
 
 
 # Example usage
@@ -347,26 +453,46 @@ if __name__ == "__main__":
             end_time=end_time
         )
         
-        # Create output directory
-        os.makedirs("summaries", exist_ok=True)
-        
-        # Generate filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        video_id = summary.url.split('v=')[1].split('&')[0] if 'v=' in summary.url else 'video'
-        
-        # Save as text file
-        txt_file = f"summaries/{video_id}_{timestamp}.txt"
-        summarizer.save_summary_to_file(summary, txt_file)
-        
-        # Save as JSON file
-        json_file = f"summaries/{video_id}_{timestamp}.json"
-        summarizer.save_summary_as_json(summary, json_file)
-        
-        # Display results
         print(f"\n✅ Processing completed!")
-        print(f"📄 Text summary: {txt_file}")
-        print(f"📋 JSON data: {json_file}")
+        print(f"📊 Summary: {len(summary.summary)} characters")
+        print(f"📚 Extracted: {len(summary.books)} books, {len(summary.people)} people, {len(summary.places)} places")
+        print(f"📝 Facts: {len(summary.facts)}, Topics: {len(summary.topics)}")
         
+        # Option 1: Save to Firebase Firestore (recommended)
+        try:
+            print("\nSaving to Firebase Firestore...")
+            summary_id = summarizer.save_summary_to_firestore(
+                summary=summary,
+                tags=['example', 'knowledge-extraction', 'ai-analysis'],
+                user_notes='Example complete knowledge extraction'
+            )
+            print(f"✓ Summary saved to Firestore with ID: {summary_id}")
+            
+        except ImportError:
+            print("⚠️  Firebase storage not available. Install firebase-admin to enable Firestore storage.")
+        except Exception as e:
+            print(f"⚠️  Firebase storage error: {e}")
+            print("Falling back to file storage...")
+            
+            # Option 2: Fallback to file storage
+            os.makedirs("summaries", exist_ok=True)
+            
+            # Generate filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            video_id = summary.url.split('v=')[1].split('&')[0] if 'v=' in summary.url else 'video'
+            
+            # Save as text file
+            txt_file = f"summaries/{video_id}_{timestamp}.txt"
+            summarizer.save_summary_to_file(summary, txt_file)
+            
+            # Save as JSON file
+            json_file = f"summaries/{video_id}_{timestamp}.json"
+            summarizer.save_summary_as_json(summary, json_file)
+            
+            print(f"📄 Text summary: {txt_file}")
+            print(f"📋 JSON data: {json_file}")
+        
+        # Display key results
         print(f"\n📊 SUMMARY:")
         print("-" * 50)
         print(summary.summary)

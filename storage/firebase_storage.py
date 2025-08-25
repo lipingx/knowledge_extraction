@@ -14,8 +14,20 @@ from google.cloud import firestore
 from google.cloud.firestore import Query
 from firebase_admin import storage
 
-from .firebase_config import get_firebase_config
-from ..youtube_extractor import VideoSegment
+try:
+    from .firebase_config import get_firebase_config
+except ImportError:
+    from storage.firebase_config import get_firebase_config
+
+# Import VideoSegment - it might not be available in some contexts
+try:
+    from ..youtube_extractor import VideoSegment
+except ImportError:
+    try:
+        from youtube_extractor import VideoSegment
+    except ImportError:
+        # VideoSegment might not be available, we'll handle this case
+        VideoSegment = None
 
 
 class FirebaseStorage:
@@ -34,7 +46,7 @@ class FirebaseStorage:
         
         # Collection references
         self.videos_ref = self.db.collection('videos')
-        self.segments_ref = self.db.collection('segments')
+        self.segments_ref = self.db.collection('segments')  # Main collection for video segments with summaries
         self.collections_ref = self.db.collection('collections')
     
     def save_segment(self, segment: VideoSegment, tags: List[str] = None, user_notes: str = "") -> str:
@@ -313,6 +325,221 @@ class FirebaseStorage:
             print(f"✗ Failed to batch save segments: {e}")
             raise
     
+    def save_complete_segment(self, segment_data: Dict) -> str:
+        """
+        Save complete video segment with knowledge extraction to Firestore
+        
+        Args:
+            segment_data: Complete segment data with transcript, summary, and extracted entities
+            
+        Returns:
+            str: Document ID of saved segment
+        """
+        try:
+            # Generate unique segment ID
+            segment_id = str(uuid.uuid4())
+            
+            # Add segment ID and timestamps
+            complete_data = {
+                **segment_data,
+                'segment_id': segment_id,
+                'created_at': firestore.SERVER_TIMESTAMP,
+                'updated_at': firestore.SERVER_TIMESTAMP
+            }
+            
+            # Save to segments collection
+            doc_ref = self.segments_ref.document(segment_id)
+            doc_ref.set(complete_data)
+            
+            # Also update video info
+            video_data = {
+                'video_id': segment_data.get('video_id'),
+                'base_url': segment_data.get('url', '').split('?')[0].split('&')[0],
+                'last_segment_at': firestore.SERVER_TIMESTAMP,
+                'segment_count': firestore.Increment(1)
+            }
+            
+            video_ref = self.videos_ref.document(segment_data.get('video_id', 'unknown'))
+            video_ref.set(video_data, merge=True)
+            
+            print(f"✓ Complete segment saved with ID: {segment_id}")
+            return segment_id
+            
+        except Exception as e:
+            print(f"✗ Failed to save complete segment: {e}")
+            raise
+    
+    def get_complete_segment(self, segment_id: str) -> Optional[Dict]:
+        """
+        Retrieve a complete segment by ID
+        
+        Args:
+            segment_id: Segment document ID
+            
+        Returns:
+            Dict: Segment data or None if not found
+        """
+        try:
+            doc = self.segments_ref.document(segment_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                return data
+            return None
+            
+        except Exception as e:
+            print(f"✗ Failed to get segment {segment_id}: {e}")
+            return None
+    
+    def search_segments(self, query: str = None, filters: Dict = None, limit: int = 20) -> List[Dict]:
+        """
+        Search video segments with filters
+        
+        Args:
+            query: Text to search in transcript/summary (basic contains)
+            filters: Dictionary of filters (tags, video_id, date_range, entities)
+            limit: Maximum results to return
+            
+        Returns:
+            List[Dict]: List of matching segment documents
+        """
+        try:
+            # Start with base query
+            firestore_query = self.segments_ref
+            
+            # Apply filters
+            if filters:
+                if 'video_id' in filters:
+                    firestore_query = firestore_query.where('video_id', '==', filters['video_id'])
+                
+                if 'tags' in filters and filters['tags']:
+                    firestore_query = firestore_query.where('tags', 'array_contains_any', filters['tags'])
+                
+                if 'min_duration' in filters:
+                    firestore_query = firestore_query.where('duration', '>=', filters['min_duration'])
+                
+                if 'max_duration' in filters:
+                    firestore_query = firestore_query.where('duration', '<=', filters['max_duration'])
+                
+                # Entity count filters
+                if 'min_books' in filters:
+                    firestore_query = firestore_query.where('entity_counts.books', '>=', filters['min_books'])
+                
+                if 'min_people' in filters:
+                    firestore_query = firestore_query.where('entity_counts.people', '>=', filters['min_people'])
+            
+            # Order and limit
+            firestore_query = firestore_query.order_by('created_at', direction=Query.DESCENDING)
+            firestore_query = firestore_query.limit(limit)
+            
+            # Execute query
+            segments = []
+            for doc in firestore_query.stream():
+                data = doc.to_dict()
+                data['id'] = doc.id
+                
+                # Basic text search in summary and transcription (client-side filtering)
+                if query:
+                    search_text = f"{data.get('summary', '')} {data.get('transcription', '')}".lower()
+                    if query.lower() not in search_text:
+                        continue
+                
+                segments.append(data)
+            
+            return segments
+            
+        except Exception as e:
+            print(f"✗ Failed to search segments: {e}")
+            return []
+    
+    def get_segments_by_video(self, video_id: str) -> List[Dict]:
+        """
+        Get all segments for a specific video
+        
+        Args:
+            video_id: YouTube video ID
+            
+        Returns:
+            List[Dict]: List of segment documents for the video
+        """
+        try:
+            # Simple query without ordering to avoid index requirement
+            query = self.segments_ref.where('video_id', '==', video_id)
+            
+            segments = []
+            for doc in query.stream():
+                data = doc.to_dict()
+                data['id'] = doc.id
+                segments.append(data)
+            
+            # Sort by created_at client-side
+            segments.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+            
+            return segments
+            
+        except Exception as e:
+            print(f"✗ Failed to get segments for video {video_id}: {e}")
+            # Fallback: get all segments and filter client-side
+            try:
+                print("   Trying fallback method...")
+                all_segments = []
+                for doc in self.segments_ref.stream():
+                    data = doc.to_dict()
+                    if data.get('video_id') == video_id:
+                        data['id'] = doc.id
+                        all_segments.append(data)
+                
+                # Sort by created_at client-side
+                all_segments.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+                return all_segments
+                
+            except Exception as fallback_error:
+                print(f"✗ Fallback also failed: {fallback_error}")
+                return []
+    
+    def update_complete_segment(self, segment_id: str, updates: Dict) -> bool:
+        """
+        Update a complete segment document
+        
+        Args:
+            segment_id: Segment document ID
+            updates: Dictionary of fields to update
+            
+        Returns:
+            bool: True if successful
+        """
+        try:
+            updates['updated_at'] = firestore.SERVER_TIMESTAMP
+            
+            doc_ref = self.segments_ref.document(segment_id)
+            doc_ref.update(updates)
+            
+            print(f"✓ Segment {segment_id} updated")
+            return True
+            
+        except Exception as e:
+            print(f"✗ Failed to update segment {segment_id}: {e}")
+            return False
+    
+    def delete_complete_segment(self, segment_id: str) -> bool:
+        """
+        Delete a complete segment document
+        
+        Args:
+            segment_id: Segment document ID
+            
+        Returns:
+            bool: True if successful
+        """
+        try:
+            self.segments_ref.document(segment_id).delete()
+            print(f"✓ Segment {segment_id} deleted")
+            return True
+            
+        except Exception as e:
+            print(f"✗ Failed to delete segment {segment_id}: {e}")
+            return False
+    
     def get_stats(self) -> Dict:
         """
         Get storage statistics
@@ -325,8 +552,11 @@ class FirebaseStorage:
                 'total_segments': 0,
                 'total_videos': 0,
                 'total_collections': 0,
+                'total_summaries': 0,
                 'total_transcript_chars': 0,
-                'latest_segment_date': None
+                'total_knowledge_entities': 0,
+                'latest_segment_date': None,
+                'latest_summary_date': None
             }
             
             # Count segments
@@ -351,6 +581,26 @@ class FirebaseStorage:
             # Count collections
             collections = list(self.collections_ref.limit(100).stream())
             stats['total_collections'] = len(collections)
+            
+            # Count segments with summaries and knowledge entities
+            # Note: segments collection now contains both raw segments and segments with summaries
+            summary_segments = []
+            for doc in self.segments_ref.limit(1000).stream():
+                data = doc.to_dict()
+                # Only count segments that have summary data (complete segments)
+                if data.get('summary') or data.get('entity_counts'):
+                    summary_segments.append(data)
+                    
+            stats['total_summaries'] = len(summary_segments)
+            
+            # Calculate knowledge entity statistics
+            for data in summary_segments:
+                entity_counts = data.get('entity_counts', {})
+                stats['total_knowledge_entities'] += sum(entity_counts.values())
+                
+                created_at = data.get('created_at')
+                if created_at and (not stats['latest_summary_date'] or created_at > stats['latest_summary_date']):
+                    stats['latest_summary_date'] = created_at
             
             return stats
             

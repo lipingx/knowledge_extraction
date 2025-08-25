@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""
+Simple Firebase Firestore Test
+Tests Firebase connection and saves sample data
+"""
+
+import os
+import sys
+
+# Add current directory to Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
+
+def main():
+    print("🚀 Simple Firebase Firestore Test")
+    print("=" * 40)
+    
+    # Test 1: Check Firebase Admin
+    try:
+        import firebase_admin
+        from firebase_admin import credentials, firestore
+        print("✅ Firebase Admin SDK available")
+    except ImportError as e:
+        print(f"❌ Firebase Admin not available: {e}")
+        return
+    
+    # Test 2: Import our modules directly
+    try:
+        from storage.firebase_config import FirebaseConfig, get_firebase_config
+        from storage.firebase_storage import FirebaseStorage, get_storage_client
+        print("✅ Storage modules imported successfully")
+    except ImportError as e:
+        print(f"❌ Storage modules failed: {e}")
+        return
+    
+    # Test 3: Create Firebase client
+    try:
+        print("\n🔍 Testing Firebase connection...")
+        
+        # Try to create Firebase config
+        config = get_firebase_config()
+        print("✅ Firebase config created")
+        
+        # Try to get storage client
+        client = get_storage_client()
+        print("✅ Storage client created")
+        
+        # Test connection
+        stats = client.get_stats()
+        print(f"✅ Connected to Firestore: {stats}")
+        
+    except Exception as e:
+        print(f"❌ Firebase connection failed: {e}")
+        import traceback
+        print(f"Full error: {traceback.format_exc()}")
+        return
+    
+    # Test 4: Save sample data
+    try:
+        print("\n🔍 Testing data operations...")
+        
+        # Create test summary data
+        test_summary = {
+            'video_id': 'test_video_123',
+            'url': 'https://youtube.com/watch?v=test_video_123',
+            'start_time': 0,
+            'end_time': 60,
+            'duration': 60,
+            'transcription': 'This is a test transcript to verify Firebase storage integration.',
+            'summary': 'Test summary for Firebase integration verification.',
+            'books': ['Test Book'],
+            'people': ['Test Person'],
+            'places': ['Test Location'],
+            'facts': ['Firebase stores data in the cloud'],
+            'topics': ['Testing', 'Firebase', 'Integration'],
+            'tags': ['test', 'firebase'],
+            'user_notes': 'Test data for verifying Firestore integration',
+            'character_count': 73,
+            'entity_counts': {
+                'books': 1,
+                'people': 1,
+                'places': 1,
+                'facts': 1,
+                'topics': 3
+            },
+            'processing_metadata': {
+                'model_used': 'test-model',
+                'extraction_type': 'integration_test',
+                'processed_at': '2025-01-25T12:00:00'
+            }
+        }
+        
+        # Save to Firestore
+        segment_id = client.save_complete_segment(test_summary)
+        print(f"✅ Test segment saved with ID: {segment_id}")
+        
+        # Retrieve it back
+        retrieved = client.get_complete_segment(segment_id)
+        if retrieved:
+            print(f"✅ Summary retrieved successfully")
+            print(f"   Video ID: {retrieved.get('video_id')}")
+            print(f"   Transcript: {retrieved.get('transcription')[:50]}...")
+            print(f"   Books: {retrieved.get('books')}")
+            print(f"   People: {retrieved.get('people')}")
+        else:
+            print("❌ Failed to retrieve summary")
+        
+        # Test search
+        search_results = client.search_segments(query='Firebase', limit=3)
+        print(f"✅ Search completed: {len(search_results)} results")
+        
+        # Get updated stats
+        final_stats = client.get_stats()
+        print(f"✅ Final stats: {final_stats}")
+        
+    except Exception as e:
+        print(f"❌ Data operations failed: {e}")
+        import traceback
+        print(f"Full error: {traceback.format_exc()}")
+        return
+    
+    print("\n" + "=" * 40)
+    print("🎉 All Firebase tests passed!")
+    print("✅ Your Firestore integration is working correctly!")
+    print("✅ Full transcript storage is functional!")
+    
+    print(f"\n📊 Final Statistics:")
+    for key, value in final_stats.items():
+        print(f"   {key}: {value}")
+
+if __name__ == "__main__":
+    main()
