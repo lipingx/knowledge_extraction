@@ -301,6 +301,18 @@ class YouTubeExtractor:
         
         return '\n'.join(lines)
     
+    def get_clean_transcript(self, segment: VideoSegment) -> str:
+        """
+        Get clean transcript without timestamps
+        
+        Args:
+            segment: VideoSegment object
+            
+        Returns:
+            Clean transcript text
+        """
+        return segment.transcript
+    
     def _seconds_to_timestamp(self, seconds: float) -> str:
         """Convert seconds to readable timestamp format (MM:SS or HH:MM:SS)"""
         hours = int(seconds // 3600)
@@ -323,8 +335,8 @@ if __name__ == "__main__":
     url = "https://www.youtube.com/watch?v=rCtvAvZtJyE&t=126s"
     
     # Example 1: Using time format strings
-    start_time = "1:24:07"  # 1 hour, 24 minutes, 7 seconds
-    end_time = "1:25:00"    # 1 hour, 25 minutes, 0 seconds
+    start_time = "1:18:30"  # 1 hour, 24 minutes, 7 seconds
+    end_time = "1:21:09"    # 1 hour, 25 minutes, 0 seconds
     
     try:
         print("Test 1: Using time format strings (HH:MM:SS)")
@@ -335,16 +347,13 @@ if __name__ == "__main__":
         print(f"Video ID: {segment.video_id}")
         print(f"URL: {segment.url}")
         print(f"Time: {segment.start_time}s - {segment.end_time}s")
-        print(f"Transcript preview: {segment.transcript[:200]}...")  # First 200 chars
         print(f"Full transcript length: {len(segment.transcript)} characters")
         print("\n" + "="*50 + "\n")
         
-        # Show with detailed timestamps (first 5 segments)
-        if segment.raw_segments:
-            print("First few segments with timestamps:")
-            for seg in segment.raw_segments[:5]:
-                timestamp = extractor._seconds_to_timestamp(seg['start'])
-                print(f"[{timestamp}] {seg['text']}")
+        # Show clean transcript without timestamps
+        print("Transcript:")
+        print("-" * 40)
+        print(segment.transcript)
         
     except Exception as e:
         print(f"Error: {e}")
