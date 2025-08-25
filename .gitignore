@@ -24,6 +24,9 @@ venv.bak/
 *.sqlite
 .env
 .cache/
+extracted_transcripts/
+summaries/
+knowledge_notes/
 
 # Jupyter Notebook
 .ipynb_checkpoints

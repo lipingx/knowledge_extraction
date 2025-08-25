@@ -327,6 +327,9 @@ class YouTubeExtractor:
 
 # Example usage
 if __name__ == "__main__":
+    import os
+    from datetime import datetime
+    
     extractor = YouTubeExtractor()
     
     # Test with a known video that typically has transcripts
@@ -335,27 +338,55 @@ if __name__ == "__main__":
     url = "https://www.youtube.com/watch?v=rCtvAvZtJyE&t=126s"
     
     # Example 1: Using time format strings
-    start_time = "1:18:30"  # 1 hour, 24 minutes, 7 seconds
-    end_time = "1:21:09"    # 1 hour, 25 minutes, 0 seconds
+    start_time = "1:18:30"  # 1 hour, 18 minutes, 30 seconds
+    end_time = "1:21:09"    # 1 hour, 21 minutes, 9 seconds
     
     try:
-        print("Test 1: Using time format strings (HH:MM:SS)")
-        print(f"Start: {start_time}, End: {end_time}")
+        print("Extracting YouTube segment...")
         segment = extractor.extract_segment(url, start_time=start_time, end_time=end_time)
         
-        print("Extracted Segment:")
-        print(f"Video ID: {segment.video_id}")
-        print(f"URL: {segment.url}")
-        print(f"Time: {segment.start_time}s - {segment.end_time}s")
-        print(f"Full transcript length: {len(segment.transcript)} characters")
-        print("\n" + "="*50 + "\n")
+        # Create output directory if it doesn't exist
+        output_dir = "extracted_transcripts"
+        os.makedirs(output_dir, exist_ok=True)
         
-        # Show clean transcript without timestamps
-        print("Transcript:")
-        print("-" * 40)
-        print(segment.transcript)
+        # Generate filename based on video ID and timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{segment.video_id}_{segment.start_time}s-{segment.end_time}s_{timestamp}.txt"
+        filepath = os.path.join(output_dir, filename)
+        
+        # Prepare content to write
+        content = []
+        content.append("YouTube Transcript Extraction")
+        content.append("=" * 50)
+        content.append(f"Video ID: {segment.video_id}")
+        content.append(f"URL: {segment.url}")
+        content.append(f"Time Range: {segment.start_time}s - {segment.end_time}s")
+        content.append(f"Duration: {segment.end_time - segment.start_time}s")
+        content.append(f"Transcript Length: {len(segment.transcript)} characters")
+        content.append(f"Extracted At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        content.append("\n" + "=" * 50)
+        content.append("CLEAN TRANSCRIPT:")
+        content.append("=" * 50)
+        content.append(segment.transcript)
+        content.append("\n" + "=" * 50)
+        content.append("DETAILED TRANSCRIPT WITH TIMESTAMPS:")
+        content.append("=" * 50)
+        
+        # Add timestamped segments
+        for seg in segment.raw_segments:
+            timestamp = extractor._seconds_to_timestamp(seg['start'])
+            content.append(f"[{timestamp}] {seg['text']}")
+        
+        # Write to file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(content))
+        
+        print(f"✓ Transcript successfully saved to: {filepath}")
+        print(f"✓ Video ID: {segment.video_id}")
+        print(f"✓ Duration: {segment.end_time - segment.start_time}s")
+        print(f"✓ Characters: {len(segment.transcript)}")
         
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"✗ Error: {e}")
         print("\nNote: The video might not have transcripts available.")
         print("Try with a different YouTube video URL that has captions/subtitles.")
