@@ -4,10 +4,14 @@ Flask Web Application for YouTube Knowledge Extraction
 
 from flask import Flask, render_template, request, jsonify
 import os
+import sys
 import json
 from datetime import datetime
-from transcript_summarizer import TranscriptSummarizer
 import traceback
+
+# Add parent directory to path to import from root
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from transcript_summarizer import TranscriptSummarizer
 
 app = Flask(__name__)
 

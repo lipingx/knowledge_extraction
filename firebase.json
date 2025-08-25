@@ -1,0 +1,6 @@
+{
+  "apphosting": {
+    "backendId": "knowledge-web-app",
+    "rootDir": "frontend/"
+  }
+}
