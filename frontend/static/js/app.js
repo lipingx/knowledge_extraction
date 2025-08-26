@@ -795,6 +795,20 @@ class SegmentsManager {
                 this.toggleSummary(button);
             });
         });
+        
+        // Initialize YouTube players for each segment
+        this.initializeYouTubePlayers();
+        
+        // Add click handlers for transcript lines
+        this.segmentsList.querySelectorAll('.transcript-line').forEach(line => {
+            line.addEventListener('click', (e) => {
+                e.preventDefault();
+                const startTime = parseFloat(line.dataset.start);
+                const segmentId = line.closest('.transcript-container').dataset.segmentId;
+                this.jumpToTime(segmentId, startTime);
+                this.highlightTranscriptLine(line);
+            });
+        });
     }
     
     createSegmentCard(segment) {
@@ -807,8 +821,8 @@ class SegmentsManager {
         const entityCounts = segment.entity_counts || {};
         const totalEntities = Object.values(entityCounts).reduce((sum, count) => sum + count, 0);
         
-        // Create embedded YouTube URL with start time
-        const embedUrl = `https://www.youtube.com/embed/${videoId}?start=${startTime}&rel=0&modestbranding=1`;
+        // Get transcript segments for interactive display
+        const transcriptSegments = segment.transcript_segments || [];
         
         // Create facts list if available
         const facts = segment.facts || [];
@@ -822,21 +836,31 @@ class SegmentsManager {
             </div>
         ` : '';
         
+        // Create interactive transcript HTML
+        const transcriptHtml = transcriptSegments.length > 0 ? `
+            <div class="interactive-transcript">
+                <h4><i class="fas fa-align-left"></i> Interactive Transcript</h4>
+                <div class="transcript-container" data-segment-id="${segment.id}">
+                    ${transcriptSegments.map((seg, index) => `
+                        <div class="transcript-line" data-start="${seg.start}" data-index="${index}">
+                            <span class="transcript-time">${this.formatSecondsToTime(seg.start)}</span>
+                            <span class="transcript-text">${seg.text}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
+        
         // Determine if summary should be collapsed (more than 200 characters)
         const fullSummary = segment.summary || segment.summary_preview || 'No summary available';
         const isLongSummary = fullSummary.length > 200;
         const shortSummary = isLongSummary ? fullSummary.substring(0, 200) + '...' : fullSummary;
         
         return `
-            <div class="segment-card-enhanced" data-segment-id="${segment.id}">
+            <div class="segment-card-enhanced" data-segment-id="${segment.id}" data-video-id="${videoId}" data-start-time="${startTime}">
                 <div class="segment-video-section">
                     <div class="segment-video-container">
-                        <iframe 
-                            src="${embedUrl}" 
-                            frameborder="0" 
-                            allowfullscreen
-                            class="segment-video">
-                        </iframe>
+                        <div id="player-${segment.id}" class="segment-video-player" data-video-id="${videoId}" data-start-time="${startTime}"></div>
                     </div>
                     <div class="segment-video-info">
                         <div class="segment-time-range">
@@ -859,18 +883,26 @@ class SegmentsManager {
                 </div>
                 
                 <div class="segment-content-section">
-                    ${factsHtml}
-                    
-                    <div class="segment-summary-section">
-                        <h4><i class="fas fa-file-text"></i> Summary</h4>
-                        <div class="summary-content ${isLongSummary ? 'collapsible' : ''}" data-full-summary="${fullSummary.replace(/"/g, '&quot;')}">
-                            <p class="summary-text">${shortSummary}</p>
-                            ${isLongSummary ? `
-                                <button class="expand-summary-btn">
-                                    <span class="expand-text">Show More</span>
-                                    <i class="fas fa-chevron-down"></i>
-                                </button>
-                            ` : ''}
+                    <div class="content-split">
+                        <div class="transcript-section">
+                            ${transcriptHtml}
+                        </div>
+                        
+                        <div class="facts-summary-section">
+                            ${factsHtml}
+                            
+                            <div class="segment-summary-section">
+                                <h4><i class="fas fa-file-text"></i> Summary</h4>
+                                <div class="summary-content ${isLongSummary ? 'collapsible' : ''}" data-full-summary="${fullSummary.replace(/"/g, '&quot;')}">
+                                    <p class="summary-text">${shortSummary}</p>
+                                    ${isLongSummary ? `
+                                        <button class="expand-summary-btn">
+                                            <span class="expand-text">Show More</span>
+                                            <i class="fas fa-chevron-down"></i>
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -933,6 +965,19 @@ class SegmentsManager {
         return `${formatTime(startSeconds)} - ${formatTime(endSeconds)}`;
     }
     
+    formatSecondsToTime(seconds) {
+        const totalSeconds = Math.floor(seconds);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const secs = totalSeconds % 60;
+        
+        if (hours > 0) {
+            return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        } else {
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+    }
+    
     toggleSummary(button) {
         const summaryContent = button.closest('.summary-content');
         const summaryText = summaryContent.querySelector('.summary-text');
@@ -983,6 +1028,129 @@ class SegmentsManager {
         window.navigationManager.switchView('extract');
         // TODO: Load specific segment details in the extract view
         console.log('View details for segment:', segmentId);
+    }
+    
+    initializeYouTubePlayers() {
+        if (!window.YT || !window.YT.Player) {
+            // YouTube API not ready yet, try again in a moment
+            setTimeout(() => this.initializeYouTubePlayers(), 100);
+            return;
+        }
+        
+        const playerElements = this.segmentsList.querySelectorAll('.segment-video-player');
+        
+        playerElements.forEach(playerElement => {
+            const videoId = playerElement.dataset.videoId;
+            const startTime = parseInt(playerElement.dataset.startTime);
+            const segmentId = playerElement.closest('.segment-card-enhanced').dataset.segmentId;
+            
+            if (videoId && !window.segmentPlayers) {
+                window.segmentPlayers = {};
+            }
+            
+            if (videoId && !window.segmentPlayers[segmentId]) {
+                window.segmentPlayers[segmentId] = new YT.Player(playerElement.id, {
+                    videoId: videoId,
+                    width: '100%',
+                    height: '225',
+                    playerVars: {
+                        start: startTime,
+                        rel: 0,
+                        modestbranding: 1,
+                        enablejsapi: 1
+                    },
+                    events: {
+                        onReady: (event) => {
+                            this.onPlayerReady(event, segmentId);
+                        },
+                        onStateChange: (event) => {
+                            this.onPlayerStateChange(event, segmentId);
+                        }
+                    }
+                });
+            }
+        });
+    }
+    
+    onPlayerReady(event, segmentId) {
+        // Start tracking time for auto-highlighting
+        this.startTimeTracking(segmentId);
+    }
+    
+    onPlayerStateChange(event, segmentId) {
+        if (event.data === YT.PlayerState.PLAYING) {
+            this.startTimeTracking(segmentId);
+        } else {
+            this.stopTimeTracking(segmentId);
+        }
+    }
+    
+    startTimeTracking(segmentId) {
+        // Clear any existing interval
+        this.stopTimeTracking(segmentId);
+        
+        if (!window.timeTrackingIntervals) {
+            window.timeTrackingIntervals = {};
+        }
+        
+        window.timeTrackingIntervals[segmentId] = setInterval(() => {
+            this.updateTranscriptHighlight(segmentId);
+        }, 500);
+    }
+    
+    stopTimeTracking(segmentId) {
+        if (window.timeTrackingIntervals && window.timeTrackingIntervals[segmentId]) {
+            clearInterval(window.timeTrackingIntervals[segmentId]);
+            delete window.timeTrackingIntervals[segmentId];
+        }
+    }
+    
+    updateTranscriptHighlight(segmentId) {
+        const player = window.segmentPlayers && window.segmentPlayers[segmentId];
+        if (!player || typeof player.getCurrentTime !== 'function') return;
+        
+        try {
+            const currentTime = player.getCurrentTime();
+            const transcriptContainer = document.querySelector(`.transcript-container[data-segment-id="${segmentId}"]`);
+            if (!transcriptContainer) return;
+            
+            const transcriptLines = transcriptContainer.querySelectorAll('.transcript-line');
+            let activeLineFound = false;
+            
+            transcriptLines.forEach(line => {
+                const startTime = parseFloat(line.dataset.start);
+                const nextLine = line.nextElementSibling;
+                const endTime = nextLine ? parseFloat(nextLine.dataset.start) : currentTime + 10;
+                
+                if (currentTime >= startTime && currentTime < endTime && !activeLineFound) {
+                    line.classList.add('active');
+                    activeLineFound = true;
+                    
+                    // Auto-scroll to keep active line visible
+                    line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    line.classList.remove('active');
+                }
+            });
+        } catch (error) {
+            console.warn('Error updating transcript highlight:', error);
+        }
+    }
+    
+    jumpToTime(segmentId, startTime) {
+        const player = window.segmentPlayers && window.segmentPlayers[segmentId];
+        if (player && typeof player.seekTo === 'function') {
+            player.seekTo(startTime, true);
+        }
+    }
+    
+    highlightTranscriptLine(line) {
+        // Remove active class from all lines in the same transcript
+        const container = line.closest('.transcript-container');
+        container.querySelectorAll('.transcript-line').forEach(l => l.classList.remove('active'));
+        
+        // Add active class to clicked line
+        line.classList.add('active');
     }
 }
 
@@ -1116,6 +1284,12 @@ class NavigationManager {
         }
     }
 }
+
+// YouTube Player API ready callback
+window.onYouTubeIframeAPIReady = function() {
+    console.log('YouTube Player API ready');
+    window.youtubeApiReady = true;
+};
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {

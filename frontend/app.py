@@ -249,7 +249,8 @@ def list_summaries():
                 'books': segment.get('books', []),
                 'people': segment.get('people', []),
                 'places': segment.get('places', []),
-                'topics': segment.get('topics', [])
+                'topics': segment.get('topics', []),
+                'transcript_segments': segment.get('transcript_segments', [])
             }
             formatted_summaries.append(formatted)
         

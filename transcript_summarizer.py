@@ -24,6 +24,7 @@ class TranscriptSummary:
     places: List[str] = None
     facts: List[str] = None
     topics: List[str] = None
+    transcript_segments: List[Dict] = None  # Timestamped transcript segments
     
     def __post_init__(self):
         """Initialize empty lists if None"""
@@ -37,6 +38,8 @@ class TranscriptSummary:
             self.facts = []
         if self.topics is None:
             self.topics = []
+        if self.transcript_segments is None:
+            self.transcript_segments = []
 
 
 class TranscriptSummarizer:
@@ -218,7 +221,8 @@ Please provide a 2-3 paragraph summary covering the main points, key insights, a
             people=summary_data.get("people", []),
             places=summary_data.get("places", []),
             facts=summary_data.get("facts", []),
-            topics=summary_data.get("topics", [])
+            topics=summary_data.get("topics", []),
+            transcript_segments=segment.raw_segments
         )
     
     def save_summary_to_file(self, summary: TranscriptSummary, filepath: str):
@@ -337,6 +341,7 @@ Please provide a 2-3 paragraph summary covering the main points, key insights, a
                 'start_time': summary.start_time,
                 'end_time': summary.end_time,
                 'transcription': summary.transcription,
+                'transcript_segments': summary.transcript_segments,  # Timestamped segments for interactive UI
                 'summary': summary.summary,
                 'books': summary.books,
                 'people': summary.people,
