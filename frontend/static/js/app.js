@@ -802,6 +802,7 @@ class SegmentsManager {
         const duration = this.formatDuration(segment.duration);
         const createdAt = this.formatDate(segment.created_at);
         const startTime = this.parseTimeToSeconds(segment.start_time);
+        const timeRange = this.formatTimeRange(segment.start_time, segment.end_time);
         
         const entityCounts = segment.entity_counts || {};
         const totalEntities = Object.values(entityCounts).reduce((sum, count) => sum + count, 0);
@@ -838,6 +839,10 @@ class SegmentsManager {
                         </iframe>
                     </div>
                     <div class="segment-video-info">
+                        <div class="segment-time-range">
+                            <i class="fas fa-play-circle"></i>
+                            <span class="time-range-text">${timeRange}</span>
+                        </div>
                         <div class="segment-meta-inline">
                             <span><i class="fas fa-clock"></i> ${duration}</span>
                             <span><i class="fas fa-calendar"></i> ${createdAt}</span>
@@ -905,6 +910,27 @@ class SegmentsManager {
         // Handle formats like "3918s" or just "3918"
         const seconds = parseInt(timeString.replace('s', ''));
         return isNaN(seconds) ? 0 : seconds;
+    }
+    
+    formatTimeRange(startTimeString, endTimeString) {
+        const startSeconds = this.parseTimeToSeconds(startTimeString);
+        const endSeconds = this.parseTimeToSeconds(endTimeString);
+        
+        const formatTime = (totalSeconds) => {
+            if (totalSeconds === 0) return '0:00';
+            
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        };
+        
+        return `${formatTime(startSeconds)} - ${formatTime(endSeconds)}`;
     }
     
     toggleSummary(button) {
