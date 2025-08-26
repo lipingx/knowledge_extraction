@@ -1322,3 +1322,258 @@ body {
 .segment-error button:hover, .stat-error button:hover {
     background: #0052a3;
 }
+
+/* Enhanced Segment Card Layout with Embedded Video */
+.segment-card-enhanced {
+    background: var(--bg-white);
+    border-radius: var(--border-radius-large);
+    box-shadow: var(--shadow-medium);
+    overflow: hidden;
+    margin-bottom: 30px;
+    transition: var(--transition);
+}
+
+.segment-card-enhanced:hover {
+    box-shadow: var(--shadow-heavy);
+    transform: translateY(-2px);
+}
+
+.segment-video-section {
+    display: flex;
+    gap: 20px;
+    padding: 25px;
+    border-bottom: 1px solid var(--border-light);
+    background: var(--bg-light);
+}
+
+.segment-video-container {
+    flex: 0 0 400px;
+    position: relative;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-light);
+}
+
+.segment-video {
+    width: 100%;
+    height: 225px;
+    border: none;
+    border-radius: var(--border-radius);
+}
+
+.segment-video-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 225px;
+}
+
+.segment-meta-inline {
+    display: flex;
+    gap: 20px;
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.segment-meta-inline span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-white);
+    border-radius: var(--border-radius);
+    font-weight: 500;
+}
+
+.segment-meta-inline i {
+    color: var(--accent-color);
+}
+
+.segment-entities-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.entity-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-dark);
+    transition: var(--transition);
+}
+
+.entity-badge:hover {
+    border-color: var(--accent-color);
+    background: var(--accent-color);
+    color: white;
+}
+
+.entity-badge i {
+    font-size: 0.75rem;
+    color: var(--accent-color);
+}
+
+.entity-badge:hover i {
+    color: white;
+}
+
+
+.segment-content-section {
+    padding: 25px;
+}
+
+.segment-facts {
+    margin-bottom: 25px;
+}
+
+.segment-facts h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dark);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.segment-facts i {
+    color: var(--accent-color);
+}
+
+.facts-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.facts-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-dark);
+    line-height: 1.5;
+}
+
+.facts-list li:last-child {
+    border-bottom: none;
+}
+
+.facts-list li.more-facts {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+.segment-summary-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dark);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.segment-summary-section i {
+    color: var(--accent-color);
+}
+
+.summary-content {
+    background: var(--bg-light);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    border-left: 4px solid var(--accent-color);
+}
+
+.summary-text {
+    color: var(--text-dark);
+    line-height: 1.6;
+    margin: 0 0 15px 0;
+}
+
+.expand-summary-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.expand-summary-btn:hover {
+    background: #0052a3;
+    transform: translateY(-1px);
+}
+
+.summary-content.expanded .summary-text {
+    margin-bottom: 15px;
+}
+
+/* Responsive Design for Enhanced Segments */
+@media (max-width: 768px) {
+    .segment-video-section {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .segment-video-container {
+        flex: none;
+        max-width: 100%;
+    }
+    
+    .segment-video {
+        height: 200px;
+    }
+    
+    .segment-video-info {
+        min-height: auto;
+    }
+    
+    .segment-meta-inline {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .segment-entities-inline {
+        gap: 8px;
+    }
+    
+    .entity-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .segment-video-section {
+        padding: 15px;
+    }
+    
+    .segment-content-section {
+        padding: 15px;
+    }
+    
+    .segment-video-container {
+        flex: 0 0 300px;
+    }
+    
+    .segment-video {
+        height: 170px;
+    }
+}

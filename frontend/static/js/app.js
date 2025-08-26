@@ -787,11 +787,12 @@ class SegmentsManager {
         const segmentsHtml = segments.map(segment => this.createSegmentCard(segment)).join('');
         this.segmentsList.innerHTML = segmentsHtml;
         
-        // Add click handlers for segment cards
-        this.segmentsList.querySelectorAll('.segment-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                if (e.target.classList.contains('segment-btn')) return;
-                this.viewSegmentDetails(card.dataset.segmentId);
+        // Add click handlers for expand/collapse summary buttons
+        this.segmentsList.querySelectorAll('.expand-summary-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.toggleSummary(button);
             });
         });
     }
@@ -800,45 +801,73 @@ class SegmentsManager {
         const videoId = segment.video_id || '';
         const duration = this.formatDuration(segment.duration);
         const createdAt = this.formatDate(segment.created_at);
+        const startTime = this.parseTimeToSeconds(segment.start_time);
         
         const entityCounts = segment.entity_counts || {};
         const totalEntities = Object.values(entityCounts).reduce((sum, count) => sum + count, 0);
         
+        // Create embedded YouTube URL with start time
+        const embedUrl = `https://www.youtube.com/embed/${videoId}?start=${startTime}&rel=0&modestbranding=1`;
+        
+        // Create facts list if available
+        const facts = segment.facts || [];
+        const factsHtml = facts.length > 0 ? `
+            <div class="segment-facts">
+                <h4><i class="fas fa-lightbulb"></i> Key Facts</h4>
+                <ul class="facts-list">
+                    ${facts.slice(0, 3).map(fact => `<li>${fact}</li>`).join('')}
+                    ${facts.length > 3 ? `<li class="more-facts">... and ${facts.length - 3} more facts</li>` : ''}
+                </ul>
+            </div>
+        ` : '';
+        
+        // Determine if summary should be collapsed (more than 200 characters)
+        const fullSummary = segment.summary || segment.summary_preview || 'No summary available';
+        const isLongSummary = fullSummary.length > 200;
+        const shortSummary = isLongSummary ? fullSummary.substring(0, 200) + '...' : fullSummary;
+        
         return `
-            <div class="segment-card" data-segment-id="${segment.id}">
-                <div class="segment-header">
-                    <div class="segment-info">
-                        <div class="segment-title">
-                            <i class="fab fa-youtube"></i>
-                            Video ${videoId}
-                        </div>
-                        <div class="segment-meta">
+            <div class="segment-card-enhanced" data-segment-id="${segment.id}">
+                <div class="segment-video-section">
+                    <div class="segment-video-container">
+                        <iframe 
+                            src="${embedUrl}" 
+                            frameborder="0" 
+                            allowfullscreen
+                            class="segment-video">
+                        </iframe>
+                    </div>
+                    <div class="segment-video-info">
+                        <div class="segment-meta-inline">
                             <span><i class="fas fa-clock"></i> ${duration}</span>
                             <span><i class="fas fa-calendar"></i> ${createdAt}</span>
-                            <span><i class="fas fa-tags"></i> ${totalEntities} entities</span>
+                        </div>
+                        <div class="segment-entities-inline">
+                            ${Object.entries(entityCounts).map(([type, count]) => 
+                                count > 0 ? `<span class="entity-badge">
+                                    <i class="fas fa-${this.getEntityIcon(type)}"></i>
+                                    ${count} ${type}
+                                </span>` : ''
+                            ).join('')}
                         </div>
                     </div>
-                    <div class="segment-actions">
-                        <button class="segment-btn" onclick="segmentsManager.openInYoutube('${segment.url}')">
-                            <i class="fab fa-youtube"></i>
-                        </button>
-                        <button class="segment-btn" onclick="segmentsManager.viewDetails('${segment.id}')">
-                            <i class="fas fa-eye"></i>
-                        </button>
+                </div>
+                
+                <div class="segment-content-section">
+                    ${factsHtml}
+                    
+                    <div class="segment-summary-section">
+                        <h4><i class="fas fa-file-text"></i> Summary</h4>
+                        <div class="summary-content ${isLongSummary ? 'collapsible' : ''}" data-full-summary="${fullSummary.replace(/"/g, '&quot;')}">
+                            <p class="summary-text">${shortSummary}</p>
+                            ${isLongSummary ? `
+                                <button class="expand-summary-btn">
+                                    <span class="expand-text">Show More</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
-                </div>
-                
-                <div class="segment-summary">
-                    ${segment.summary_preview || 'No summary available'}
-                </div>
-                
-                <div class="segment-entities">
-                    ${Object.entries(entityCounts).map(([type, count]) => 
-                        count > 0 ? `<div class="entity-count">
-                            <i class="fas fa-${this.getEntityIcon(type)}"></i>
-                            ${count} ${type}
-                        </div>` : ''
-                    ).join('')}
                 </div>
             </div>
         `;
@@ -868,6 +897,36 @@ class SegmentsManager {
             return new Date(dateString).toLocaleDateString();
         } catch {
             return 'Unknown';
+        }
+    }
+    
+    parseTimeToSeconds(timeString) {
+        if (!timeString) return 0;
+        // Handle formats like "3918s" or just "3918"
+        const seconds = parseInt(timeString.replace('s', ''));
+        return isNaN(seconds) ? 0 : seconds;
+    }
+    
+    toggleSummary(button) {
+        const summaryContent = button.closest('.summary-content');
+        const summaryText = summaryContent.querySelector('.summary-text');
+        const expandText = button.querySelector('.expand-text');
+        const chevron = button.querySelector('i');
+        const fullSummary = summaryContent.dataset.fullSummary;
+        
+        if (summaryContent.classList.contains('expanded')) {
+            // Collapse
+            const shortSummary = fullSummary.length > 200 ? fullSummary.substring(0, 200) + '...' : fullSummary;
+            summaryText.textContent = shortSummary;
+            expandText.textContent = 'Show More';
+            chevron.className = 'fas fa-chevron-down';
+            summaryContent.classList.remove('expanded');
+        } else {
+            // Expand
+            summaryText.textContent = fullSummary;
+            expandText.textContent = 'Show Less';
+            chevron.className = 'fas fa-chevron-up';
+            summaryContent.classList.add('expanded');
         }
     }
     

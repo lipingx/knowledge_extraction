@@ -243,7 +243,13 @@ def list_summaries():
                 'tags': segment.get('tags', []),
                 'entity_counts': entity_counts,
                 'created_at': segment.get('created_at'),
-                'summary_preview': segment.get('summary', '')[:200] + '...' if len(segment.get('summary', '')) > 200 else segment.get('summary', '')
+                'summary': segment.get('summary', ''),
+                'summary_preview': segment.get('summary', '')[:200] + '...' if len(segment.get('summary', '')) > 200 else segment.get('summary', ''),
+                'facts': segment.get('facts', []),
+                'books': segment.get('books', []),
+                'people': segment.get('people', []),
+                'places': segment.get('places', []),
+                'topics': segment.get('topics', [])
             }
             formatted_summaries.append(formatted)
         
