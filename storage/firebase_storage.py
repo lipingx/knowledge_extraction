@@ -185,8 +185,8 @@ class FirebaseStorage:
                 data = doc.to_dict()
                 data['id'] = doc.id
                 
-                # Basic text search in transcript (client-side filtering)
-                if query and query.lower() not in data.get('transcript', '').lower():
+                # Basic text search in transcription (client-side filtering)
+                if query and query.lower() not in data.get('transcription', '').lower():
                     continue
                 
                 segments.append(data)

@@ -21,8 +21,26 @@
             </div>
         </header>
 
-        <!-- Main Form -->
-        <div class="form-section">
+        <!-- Navigation -->
+        <nav class="navigation">
+            <button class="nav-btn active" id="extractNavBtn" data-view="extract">
+                <i class="fas fa-magic"></i>
+                Extract Knowledge
+            </button>
+            <button class="nav-btn" id="segmentsNavBtn" data-view="segments">
+                <i class="fas fa-list"></i>
+                View Segments
+            </button>
+            <button class="nav-btn" id="statsNavBtn" data-view="stats">
+                <i class="fas fa-chart-bar"></i>
+                Statistics
+            </button>
+        </nav>
+
+        <!-- Extract Knowledge View -->
+        <div class="view-container" id="extractView">
+            <!-- Main Form -->
+            <div class="form-section">
             <form id="extractForm" class="extraction-form">
                 <div class="input-group">
                     <label for="youtube-url">
@@ -287,13 +305,65 @@
             </div>
         </div>
 
-        <!-- Error Display -->
-        <div id="errorSection" class="error-section hidden">
-            <div class="error-content">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Error</h3>
-                <p id="errorMessage"></p>
-                <button class="retry-btn" id="retryBtn">Try Again</button>
+            <!-- Error Display -->
+            <div id="errorSection" class="error-section hidden">
+                <div class="error-content">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error</h3>
+                    <p id="errorMessage"></p>
+                    <button class="retry-btn" id="retryBtn">Try Again</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Segments View -->
+        <div class="view-container hidden" id="segmentsView">
+            <div class="segments-header">
+                <h2><i class="fas fa-list"></i> Stored Segments</h2>
+                <div class="segments-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="segmentSearch" placeholder="Search segments...">
+                    </div>
+                    <button class="refresh-btn" id="refreshSegments">
+                        <i class="fas fa-sync-alt"></i>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Segments Loading -->
+            <div id="segmentsLoading" class="segments-loading hidden">
+                <div class="loading-spinner"></div>
+                <p>Loading segments...</p>
+            </div>
+
+            <!-- Segments List -->
+            <div id="segmentsList" class="segments-list">
+                <!-- Segments will be populated here -->
+            </div>
+
+            <!-- No Segments Message -->
+            <div id="noSegments" class="no-segments hidden">
+                <i class="fas fa-inbox"></i>
+                <h3>No segments found</h3>
+                <p>Extract your first knowledge segment to see it here!</p>
+            </div>
+        </div>
+
+        <!-- Statistics View -->
+        <div class="view-container hidden" id="statsView">
+            <div class="stats-header">
+                <h2><i class="fas fa-chart-bar"></i> Storage Statistics</h2>
+            </div>
+            
+            <div id="statsLoading" class="stats-loading hidden">
+                <div class="loading-spinner"></div>
+                <p>Loading statistics...</p>
+            </div>
+
+            <div id="statsContent" class="stats-content">
+                <!-- Statistics will be populated here -->
             </div>
         </div>
     </div>

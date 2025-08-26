@@ -700,3 +700,348 @@ function addKeyboardShortcuts() {
         }
     });
 }
+
+// Segments Manager Class
+class SegmentsManager {
+    constructor() {
+        this.segmentsList = document.getElementById('segmentsList');
+        this.segmentsLoading = document.getElementById('segmentsLoading');
+        this.noSegments = document.getElementById('noSegments');
+        this.searchInput = document.getElementById('segmentSearch');
+        this.refreshBtn = document.getElementById('refreshSegments');
+        
+        this.currentSegments = [];
+        this.searchTimeout = null;
+        
+        this.init();
+    }
+    
+    init() {
+        // Search functionality
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', (e) => {
+                clearTimeout(this.searchTimeout);
+                this.searchTimeout = setTimeout(() => {
+                    this.filterSegments(e.target.value);
+                }, 300);
+            });
+        }
+        
+        // Refresh button
+        if (this.refreshBtn) {
+            this.refreshBtn.addEventListener('click', () => {
+                this.loadSegments();
+            });
+        }
+    }
+    
+    async loadSegments() {
+        if (!this.segmentsList) return;
+        
+        this.showLoading();
+        
+        try {
+            const response = await fetch('/api/summaries?limit=50');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.currentSegments = result.data.summaries;
+                this.renderSegments(this.currentSegments);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('Failed to load segments:', error);
+            this.showError('Failed to load segments: ' + error.message);
+        }
+    }
+    
+    showLoading() {
+        this.segmentsLoading?.classList.remove('hidden');
+        this.segmentsList.innerHTML = '';
+        this.noSegments?.classList.add('hidden');
+    }
+    
+    showError(message) {
+        this.segmentsLoading?.classList.add('hidden');
+        this.segmentsList.innerHTML = `
+            <div class="segment-error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>${message}</p>
+                <button onclick="segmentsManager.loadSegments()">Try Again</button>
+            </div>
+        `;
+    }
+    
+    renderSegments(segments) {
+        this.segmentsLoading?.classList.add('hidden');
+        
+        if (!segments || segments.length === 0) {
+            this.segmentsList.innerHTML = '';
+            this.noSegments?.classList.remove('hidden');
+            return;
+        }
+        
+        this.noSegments?.classList.add('hidden');
+        
+        const segmentsHtml = segments.map(segment => this.createSegmentCard(segment)).join('');
+        this.segmentsList.innerHTML = segmentsHtml;
+        
+        // Add click handlers for segment cards
+        this.segmentsList.querySelectorAll('.segment-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (e.target.classList.contains('segment-btn')) return;
+                this.viewSegmentDetails(card.dataset.segmentId);
+            });
+        });
+    }
+    
+    createSegmentCard(segment) {
+        const videoId = segment.video_id || '';
+        const duration = this.formatDuration(segment.duration);
+        const createdAt = this.formatDate(segment.created_at);
+        
+        const entityCounts = segment.entity_counts || {};
+        const totalEntities = Object.values(entityCounts).reduce((sum, count) => sum + count, 0);
+        
+        return `
+            <div class="segment-card" data-segment-id="${segment.id}">
+                <div class="segment-header">
+                    <div class="segment-info">
+                        <div class="segment-title">
+                            <i class="fab fa-youtube"></i>
+                            Video ${videoId}
+                        </div>
+                        <div class="segment-meta">
+                            <span><i class="fas fa-clock"></i> ${duration}</span>
+                            <span><i class="fas fa-calendar"></i> ${createdAt}</span>
+                            <span><i class="fas fa-tags"></i> ${totalEntities} entities</span>
+                        </div>
+                    </div>
+                    <div class="segment-actions">
+                        <button class="segment-btn" onclick="segmentsManager.openInYoutube('${segment.url}')">
+                            <i class="fab fa-youtube"></i>
+                        </button>
+                        <button class="segment-btn" onclick="segmentsManager.viewDetails('${segment.id}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="segment-summary">
+                    ${segment.summary_preview || 'No summary available'}
+                </div>
+                
+                <div class="segment-entities">
+                    ${Object.entries(entityCounts).map(([type, count]) => 
+                        count > 0 ? `<div class="entity-count">
+                            <i class="fas fa-${this.getEntityIcon(type)}"></i>
+                            ${count} ${type}
+                        </div>` : ''
+                    ).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    getEntityIcon(type) {
+        const icons = {
+            books: 'book',
+            people: 'users',
+            places: 'map-marker-alt',
+            facts: 'lightbulb',
+            topics: 'tags'
+        };
+        return icons[type] || 'circle';
+    }
+    
+    formatDuration(seconds) {
+        if (!seconds) return '--:--';
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+    
+    formatDate(dateString) {
+        if (!dateString) return 'Unknown';
+        try {
+            return new Date(dateString).toLocaleDateString();
+        } catch {
+            return 'Unknown';
+        }
+    }
+    
+    filterSegments(query) {
+        if (!query.trim()) {
+            this.renderSegments(this.currentSegments);
+            return;
+        }
+        
+        const filtered = this.currentSegments.filter(segment => {
+            const searchText = (segment.summary_preview || '').toLowerCase() +
+                             (segment.video_id || '').toLowerCase() +
+                             (segment.tags || []).join(' ').toLowerCase();
+            return searchText.includes(query.toLowerCase());
+        });
+        
+        this.renderSegments(filtered);
+    }
+    
+    openInYoutube(url) {
+        if (url) {
+            window.open(url, '_blank');
+        }
+    }
+    
+    viewDetails(segmentId) {
+        // Switch to extract view and load the segment details
+        window.navigationManager.switchView('extract');
+        // TODO: Load specific segment details in the extract view
+        console.log('View details for segment:', segmentId);
+    }
+}
+
+// Statistics Manager Class
+class StatsManager {
+    constructor() {
+        this.statsContent = document.getElementById('statsContent');
+        this.statsLoading = document.getElementById('statsLoading');
+    }
+    
+    async loadStats() {
+        if (!this.statsContent) return;
+        
+        this.showLoading();
+        
+        try {
+            const response = await fetch('/api/stats');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.renderStats(result.data);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('Failed to load stats:', error);
+            this.showError('Failed to load statistics: ' + error.message);
+        }
+    }
+    
+    showLoading() {
+        this.statsLoading?.classList.remove('hidden');
+        this.statsContent.innerHTML = '';
+    }
+    
+    showError(message) {
+        this.statsLoading?.classList.add('hidden');
+        this.statsContent.innerHTML = `
+            <div class="stat-error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>${message}</p>
+                <button onclick="statsManager.loadStats()">Try Again</button>
+            </div>
+        `;
+    }
+    
+    renderStats(stats) {
+        this.statsLoading?.classList.add('hidden');
+        
+        const statsHtml = `
+            <div class="stat-card">
+                <i class="fas fa-list"></i>
+                <div class="stat-value">${stats.total_segments || 0}</div>
+                <div class="stat-label">Total Segments</div>
+            </div>
+            <div class="stat-card">
+                <i class="fab fa-youtube"></i>
+                <div class="stat-value">${stats.total_videos || 0}</div>
+                <div class="stat-label">Videos Processed</div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-file-text"></i>
+                <div class="stat-value">${stats.total_summaries || 0}</div>
+                <div class="stat-label">Summaries Created</div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-brain"></i>
+                <div class="stat-value">${stats.total_knowledge_entities || 0}</div>
+                <div class="stat-label">Knowledge Entities</div>
+            </div>
+        `;
+        
+        this.statsContent.innerHTML = statsHtml;
+    }
+}
+
+// Navigation Manager Class
+class NavigationManager {
+    constructor() {
+        this.navButtons = document.querySelectorAll('.nav-btn');
+        this.viewContainers = document.querySelectorAll('.view-container');
+        
+        this.currentView = 'extract';
+        this.init();
+    }
+    
+    init() {
+        this.navButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const view = e.target.dataset.view || e.target.closest('.nav-btn').dataset.view;
+                this.switchView(view);
+            });
+        });
+    }
+    
+    switchView(viewName) {
+        // Update navigation buttons
+        this.navButtons.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.view === viewName) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Update view containers
+        this.viewContainers.forEach(container => {
+            if (container.id === `${viewName}View`) {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        });
+        
+        // Load data for the new view
+        this.currentView = viewName;
+        this.loadViewData(viewName);
+    }
+    
+    loadViewData(viewName) {
+        switch (viewName) {
+            case 'segments':
+                if (window.segmentsManager) {
+                    window.segmentsManager.loadSegments();
+                }
+                break;
+            case 'stats':
+                if (window.statsManager) {
+                    window.statsManager.loadStats();
+                }
+                break;
+        }
+    }
+}
+
+// Initialize the app when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    new YouTubeExtractor();
+    
+    // Add some helpful features
+    addURLPatternHelper();
+    addKeyboardShortcuts();
+    
+    // Initialize navigation and data managers
+    window.navigationManager = new NavigationManager();
+    window.segmentsManager = new SegmentsManager();
+    window.statsManager = new StatsManager();
+});
