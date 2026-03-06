@@ -28,6 +28,7 @@ venv.bak/
 extracted_transcripts/
 summaries/
 knowledge_notes/
+output/
 
 # Jupyter Notebook
 .ipynb_checkpoints
