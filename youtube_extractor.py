@@ -46,14 +46,13 @@ class YouTubeExtractor:
         start_time = None
         
         # youtube.com/watch?v=VIDEO_ID
-        if parsed.hostname in ['www.youtube.com', 'youtube.com']:
-            if parsed.path == '/watch':
-                query_params = parse_qs(parsed.query)
-                video_id = query_params.get('v', [None])[0]
-                # Check for time parameter (t=89 or t=1m29s)
-                time_param = query_params.get('t', [None])[0]
-                if time_param:
-                    start_time = self._parse_time_param(time_param)
+        if parsed.hostname in ['www.youtube.com', 'youtube.com'] and parsed.path == '/watch':
+            query_params = parse_qs(parsed.query)
+            video_id = query_params.get('v', [None])[0]
+            # Check for time parameter (t=89 or t=1m29s)
+            time_param = query_params.get('t', [None])[0]
+            if time_param:
+                start_time = self._parse_time_param(time_param)
         
         # youtu.be/VIDEO_ID
         elif parsed.hostname in ['youtu.be', 'www.youtu.be']:
@@ -63,7 +62,7 @@ class YouTubeExtractor:
             if time_param:
                 start_time = self._parse_time_param(time_param)
         
-        # Handle embedded URLs
+        # Handle embedded URLs (youtube.com/embed/ID)
         elif 'youtube.com/embed/' in url:
             match = re.search(r'embed/([a-zA-Z0-9_-]+)', url)
             if match:

@@ -67,7 +67,7 @@ def test_extraction_with_real_video():
             segment = extractor.extract_segment(
                 url=test['url'],
                 duration=test['duration'],
-                start_time_override=test['start_override']
+                start_time=test['start_override']
             )
             
             print(f"✓ Successfully extracted segment")

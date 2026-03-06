@@ -2,3 +2,4 @@ youtube-transcript-api>=0.6.1
 openai>=1.0.0
 flask>=2.3.0
 firebase-admin>=6.0.0
+requests>=2.31.0
