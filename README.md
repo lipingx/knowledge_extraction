@@ -75,6 +75,32 @@ Choose a different OpenAI model:
 python3 youtube_to_wechat.py "https://www.youtube.com/watch?v=CE2_N7EBX7k" --model gpt-4o-mini
 ```
 
+## Transcript Only
+
+If you only want the transcript, without Chinese translation and without WeChat formatting, use:
+
+```bash
+python3 extract_transcript.py "https://www.youtube.com/watch?v=CE2_N7EBX7k"
+```
+
+Extract only a time range:
+
+```bash
+python3 extract_transcript.py "https://www.youtube.com/watch?v=CE2_N7EBX7k" --start 10:25 --end 15:28
+```
+
+Extract a time range and save it to a file:
+
+```bash
+python3 extract_transcript.py "https://www.youtube.com/watch?v=CE2_N7EBX7k" --start 10:25 --end 15:28 --output transcript.txt
+```
+
+Use timestamps:
+
+```bash
+python3 extract_transcript.py "https://www.youtube.com/watch?v=CE2_N7EBX7k" --start 10:25 --end 15:28 --timestamps
+```
+
 ## Output
 
 The script writes files into `output/` by default:
@@ -88,6 +114,9 @@ The script writes files into `output/` by default:
 - `youtube_to_wechat.py` fetches the transcript first.
 - For non-Chinese videos, translation happens in step 2.
 - The final WeChat Markdown keeps the Chinese body text intact and only changes formatting.
+- `extract_transcript.py` prints the transcript to the terminal by default.
+- `extract_transcript.py` only saves to disk when you pass `--output`.
+- If you pass `--output transcript.txt`, the file is saved relative to your current directory unless you provide an absolute path.
 - If `openai` is missing, install dependencies again:
 
 ```bash
